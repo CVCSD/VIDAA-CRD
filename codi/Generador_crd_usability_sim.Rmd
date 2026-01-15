@@ -1,0 +1,400 @@
+---
+title: "Generador_crd"
+author: "Grup D"
+date: "2026-01-14"
+output: html_document
+---
+
+```{r llibreries}
+
+library(REDCapR)
+library(tidyverse)
+library(dplyr)
+
+```
+
+
+
+# Usability
+
+```{r Càrrega Questionari Usability}
+
+load(here::here('dades','con.RData'))
+
+
+res_usability <- redcap_project_info_read(
+  redcap_uri = con$url,
+  token      = con$token_usability
+)
+
+meta_usability <- redcap_metadata_read(
+  redcap_uri = con$url,
+  token      = con$token_usability
+)
+
+```
+
+
+```{r instruments}
+instruments_usabilty <- unique(meta_usability$data$form_name)
+llista_instr_usability <- list()
+
+for (i in instruments_usabilty){
+  llista_instr_usability[[i]] <- redcap_read(
+    redcap_uri = con$url,
+    token      = con$token_usability,
+    forms = i
+  )$data
+}
+
+```
+
+
+## Simulacions
+
+```{r Characteristics of professional}
+
+
+noms_base <- c("Pau", "Anna", "Joan", "Laura", "Marc",
+               "Clara", "Pol", "Mireia", "David", "Nuria")
+
+dt_char_prof_sim <- tibble(
+    record_id = 1:10,
+    redcap_repeat_instrument = NA,
+    redcap_repeat_instance = NA  
+)
+
+
+dt_char_prof_sim <- dt_char_prof_sim %>% mutate(
+  profesional = noms_base,
+  date_inclusion = as.Date(sample(seq.Date(
+    as.Date("2025-12-01"), as.Date(Sys.Date()), by = "day"), 
+    size = 10, replace = TRUE)),
+  inclusion_criteria = 1,
+  e_mail = paste0(profesional, "@gmail.com"),
+  age_prof = sample(seq(35,60), 10, replace = T),
+  int_per_year = sample(seq(12,24), 10, replace = T),
+  exper_years = sample(seq(5,15), 10, replace = T),
+  characteristics_of_professional_complete = 2
+)
+
+redcap_write(
+  ds          = dt_char_prof_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)$success
+
+```
+
+```{r Professional Case}
+
+dt_prof_case_sim <- tibble(
+    record_id = rep(1:10, each = 5),
+    redcap_repeat_instrument = rep(c(NA, rep("professionalcase", 4)), times = 10),
+    redcap_repeat_instance = rep(c(NA, 1:4), times = 10)
+  )
+
+
+
+dt_prof_case_sim <- dt_prof_case_sim %>%
+  mutate(
+    idx_ok = !is.na(.[[2]]),
+    nhc = if_else(
+      idx_ok,
+      paste0("nh", sample(100:999, n(), replace = TRUE)),
+      NA
+    ),
+    nom_pacient = if_else(
+      idx_ok,
+      paste0(noms_base, " ", sample(LETTERS, n(), replace = TRUE), "."),
+      NA
+    ),
+    id_tc = if_else(
+      idx_ok,
+      paste0("tc", sample(100:999, n(), replace = TRUE)),
+      NA
+    ),
+    professionalcase_complete = if_else(idx_ok, 2, NA)
+  ) %>%
+  select(-idx_ok)
+
+redcap_write(
+  ds          = dt_prof_case_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)$success
+
+```
+
+
+```{r Time Interaction Platform}
+
+colnames(llista_instr_usability[[3]])
+
+
+dt_t_interaction_sim <-  tibble(
+    record_id = rep(1:10, each = 5),
+    redcap_repeat_instrument = rep(c(NA, rep("time_interaction_platform", 4)), times = 10),
+    redcap_repeat_instance = rep(c(NA, 1:4), times = 10)
+  )
+
+
+dt_t_interaction_sim <- dt_t_interaction_sim %>%
+  mutate(
+    idx_ok = !is.na(.[[2]]),
+    date_asses = if_else(
+      idx_ok,
+      as.Date(sample(seq.Date(
+        as.Date("2025-12-01"), as.Date(Sys.Date()), by = "day"), 
+        size = 50, replace = TRUE)),
+      NA),
+    overal_time = if_else(
+      idx_ok,
+      sample(10:60, 50 ,replace = T),
+      NA),
+    review_time = if_else(
+      idx_ok,
+      sample(10:60, 50 ,replace = T),
+      NA),
+    load_time = if_else(
+      idx_ok,
+      sample(10:60, 50 ,replace = T),
+      NA),
+    perform_time = if_else(
+      idx_ok,
+      sample(10:60, 50 ,replace = T),
+      NA),
+    time_select = if_else(
+      idx_ok,
+      sample(10:60, 50 ,replace = T),
+      NA),
+    size_time = if_else(
+      idx_ok,
+      sample(10:60, 50 ,replace = T),
+      NA),
+    device_time = if_else(
+      idx_ok,
+      sample(10:60, 50 ,replace = T),
+      NA),
+    time_interaction_platform_complete = if_else(idx_ok, 2, NA)
+  ) %>%
+  select(-idx_ok)
+
+redcap_write(
+  ds          = dt_t_interaction_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)$success
+
+```
+
+
+```{r DRT risk}
+colnames(llista_instr_usability[[4]])
+
+dt_drt_sim <- tibble(
+  record_id = rep(1:10, each = 5),
+  redcap_repeat_instrument = rep(c(NA, rep("drt_risk_stratification_decisional_change", 4)), times = 10),
+  redcap_repeat_instance = rep(c(NA, 1:4), times = 10)
+)
+
+dt_drt_sim <- dt_drt_sim %>% 
+  mutate(
+    idx_ok = !is.na(.[[2]]),
+    drt_understanding_improve = if_else(
+      idx_ok,
+      sample(0:1, 50, replace = T),
+      NA),
+    implant_differs = if_else(
+      idx_ok,
+      sample(0:1, 50, replace = T),
+      NA),
+    drt_risk_stratification_decisional_change_complete = if_else(idx_ok, 2, NA)
+  ) %>%
+  select(-idx_ok)
+
+redcap_write(
+  ds          = dt_drt_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)$success
+
+```
+
+```{r Critical task}
+colnames(llista_instr_usability[[5]])
+
+
+dt_critical_sim <- tibble(
+  record_id = rep(1:10, each = 5),
+  redcap_repeat_instrument = rep(c(NA_character_, rep("critical_task_rational_decision", 4)), times = 10),
+  redcap_repeat_instance   = rep(c(NA_integer_, 1:4), times = 10)
+) %>%
+  bind_cols(
+    as_tibble(matrix(NA_integer_, nrow = 50, ncol = 8)) %>% 
+      setNames(paste0("tasks___", 1:8))
+  )
+
+dt_critical_sim <- dt_critical_sim %>%
+  mutate(
+    idx_ok = !is.na(redcap_repeat_instrument),
+    across(
+      paste0("tasks___", 1:8),
+      ~ if_else(
+        idx_ok,
+        sample(0:1, 50, replace = TRUE),
+        NA
+      )
+    ),
+    rational_q1 = if_else(
+      idx_ok,
+      sample(0:1, 50, replace = TRUE),
+      NA
+    ),
+    rational_q1_txt = if_else(
+      idx_ok & rational_q1 == 1L,
+      "Random Text",
+      NA
+    ),
+    rational_q2 = if_else(
+      idx_ok,
+      sample(0:1, 50, replace = TRUE),
+      NA
+    ),
+    rational_q2_txt = if_else(
+      idx_ok & rational_q1 == 1L,
+      "Random Text",
+      NA
+    ),
+    critical_task_rational_decision_complete = if_else(idx_ok, 2, NA)
+  ) %>%
+  select(-idx_ok)
+
+
+redcap_write(
+  ds          = dt_critical_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)$success
+
+```
+
+```{r sus usability final}
+colnames(llista_instr_usability[[6]])
+
+
+dt_sus_final <- tibble(
+    record_id = 1:10,
+    redcap_repeat_instrument = NA,
+    redcap_repeat_instance = NA  
+)
+
+dt_sus_final <- dt_sus_final %>% mutate(
+  fecha_sus = as.Date(sample(seq.Date(
+    as.Date("2025-12-01"), as.Date(Sys.Date()), by = "day"), 
+    size = 10, replace = TRUE))) %>% 
+  bind_cols(
+    as_tibble(matrix(NA_integer_, nrow = 10, ncol = 10)) %>% 
+      setNames(paste0("sus_", 1:10))
+  ) %>% 
+  mutate(
+    across(
+      paste0("sus_", 1:10),
+      ~ sample(1:5, 10, replace = T)
+    ),
+    sus_usability_final_complete = 2
+  )
+
+redcap_write(
+  ds          = dt_sus_final,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)$success
+```
+
+
+```{r}
+colnames(llista_instr_usability[[7]])
+
+dt_likert_sim <- tibble(
+    record_id = 1:10,
+    redcap_repeat_instrument = NA,
+    redcap_repeat_instance = NA  
+    ) %>% 
+   bind_cols(
+    as_tibble(matrix(NA_integer_, nrow = 10, ncol = 7)) %>% 
+      setNames(paste0("sus_", 1:7, "_esp"))
+  )
+  
+dt_likert_sim <- dt_likert_sim %>% 
+  mutate(
+    across(
+      paste0("sus_",1:7,"_esp"),
+      ~ sample(1:5, 10, replace = T)
+    ),
+    preferencies = "Random Text",
+    frustracio = "Random Text",
+    millores = "Random Text",
+    dudas = "Random Text",
+    likert_open_questions_final_complete = 2
+  )
+
+redcap_write(
+  ds          = dt_likert_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)$success
+
+```
+
+
+
+# Concordance
+
+```{r Càrrega Questionari Usability}
+
+load(here::here('dades','con.RData'))
+
+
+res_concordance <- redcap_project_info_read(
+  redcap_uri = con$url,
+  token      = con$token_concordance
+)
+
+
+meta_concordance <- redcap_metadata_read(
+  redcap_uri = con$url,
+  token      = con$token_concordance
+)
+
+```
+
+
+```{r instruments}
+instruments_concordance <- unique(meta_concordance$data$form_name)
+llista_instr_concordance <- list()
+
+for (i in instruments_concordancey){
+  llista_instr_concordancey[[i]] <- redcap_read(
+    redcap_uri = con$url,
+    token      = con$token_concordance,
+    forms = i
+  )$data
+}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

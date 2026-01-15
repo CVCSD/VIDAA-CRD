@@ -1,0 +1,230 @@
+---
+title: "Generador_crd_concordance_sim"
+output: html_document
+date: "2026-01-15"
+---
+
+
+# Concordance
+
+```{r Càrrega Questionari Usability}
+
+load(here::here('dades','con.RData'))
+
+
+res_concordance <- redcap_project_info_read(
+  redcap_uri = con$url,
+  token      = con$token_concordance
+)
+
+
+meta_concordance <- redcap_metadata_read(
+  redcap_uri = con$url,
+  token      = con$token_concordance
+)
+
+```
+
+
+```{r instruments}
+instruments_concordance <- unique(meta_concordance$data$form_name)
+llista_instr_concordance <- list()
+
+for (i in instruments_concordance){
+  llista_instr_concordance[[i]] <- redcap_read(
+    redcap_uri = con$url,
+    token      = con$token_concordance,
+    forms = i
+  )$data
+}
+
+```
+
+
+```{r Criteris d'inclusio/exclusio}
+noms_instr1 <- names(llista_instr_concordance[[1]])
+
+dt_inc_criteria_sim <- tibble(
+  !!noms_instr1[1] := 1:100,
+  !!noms_instr1[2] := paste0("nh", sample(0:99, 100, replace = FALSE)),
+  !!!setNames(
+    rep(1, length(noms_instr1) - 3),
+    noms_instr1[3:(length(noms_instr1) - 1)]
+  ),
+  !!noms_instr1[length(noms_instr1)] := 2
+)
+
+```
+
+
+```{r Baseline}
+noms_instr2 <- names(llista_instr_concordance[[2]])
+
+naixement <- as.Date(sample(seq.Date(
+        as.Date("1946-01-01"), as.Date("2008-01-01"), by = "day"),100, replace = T))
+
+
+dt_baseline_sim <- tibble(
+  !!noms_instr2[1] := 1:100,
+  !!noms_instr2[2] := as.numeric(format(Sys.Date(), "%Y")) -
+    as.numeric(format(as.Date(naixement, format = "%Y-%m-%d"), "%Y")),
+  !!noms_instr2[3] := naixement,
+  !!noms_instr2[4] := sample(1:2, 100, replace = TRUE),
+  !!noms_instr2[5] := sample(20:30, 100, replace = TRUE),
+  !!noms_instr2[6] := sample(1:10, 100, replace = TRUE),
+  !!noms_instr2[7] := sample(1:10, 100, replace = TRUE),
+  !!noms_instr2[8] := sample(1:2, 100, replace = TRUE),
+  !!!setNames(
+    lapply(9:(length(noms_instr2) - 1), \(i) sample(0:1, 100, replace = TRUE)),
+    noms_instr2[9:(length(noms_instr2) - 1)]
+  ),
+
+  !!noms_instr2[length(noms_instr2)] := 2
+)
+
+
+```
+
+
+```{r Endpoints Platform}
+noms_instr3 <- names(llista_instr_concordance[[3]])
+
+noms_base <- c("Pau", "Anna", "Joan", "Laura", "Marc",
+               "Clara", "Pol", "Mireia", "David", "Nuria")
+
+noms <- paste0(noms_base, " ", sample(LETTERS, 100, replace = TRUE), ".")
+
+
+dt_endpoint_platform_sim <- tibble(
+  !!noms_instr3[1] := 1:100,
+  !!noms_instr3[2] := noms,
+  !!noms_instr3[3] := sample(0:99, 100, replace = T) + 0.1,
+  !!noms_instr3[4] := sample(50:99, 100, replace = T) + 0.1,
+  !!noms_instr3[5] := sample(1:49, 100, replace = T) + 0.1,
+  !!noms_instr3[6] := sample(0:99, 100, replace = T) + 0.1,
+  !!noms_instr3[7] := sample(0:1, 100, replace = T),
+  !!noms_instr3[8] := sample(1:2, 100, replace = T),
+  !!noms_instr3[length(noms_instr3)] := 2
+)
+
+```
+
+
+```{r Endpoint Real}
+noms_instr4 <- names(llista_instr_concordance[[4]])
+
+dt_endpoint_real_sim <- tibble(
+  !!noms_instr4[1] := 1:100,
+  !!noms_instr4[2] := sample(0:99, 100, replace = T) + 0.1,
+  !!noms_instr4[3] := sample(50:99, 100, replace = T) + 0.1,
+  !!noms_instr4[4] := sample(1:49, 100, replace = T) + 0.1,
+  !!noms_instr4[5] := sample(0:99, 100, replace = T) + 0.1,
+  !!noms_instr4[6] := sample(0:1, 100, replace = T),
+  !!noms_instr4[7] := sample(0:1, 100, replace = T),
+  !!noms_instr4[8] := as.Date(sample(seq.Date(
+    as.Date("2025-12-01"), as.Date(Sys.Date()), by = "day"), 
+    size = 100, replace = TRUE)),
+  !!noms_instr4[length(noms_instr4)] := 2
+)
+
+```
+
+
+```{r}
+noms_instr5 <- names(llista_instr_concordance[[5]])
+
+dt_device_sim <- tibble(
+  !!noms_instr5[1] := 1:100,
+  !!noms_instr5[2] := sample(1:2, 100, replace = T),
+  !!noms_instr5[3] := sample(40:99, 100, replace = T) + 0.1,
+  !!noms_instr5[4] := "Random Text",
+  !!noms_instr5[length(noms_instr5)] := 2
+)
+
+```
+
+
+
+```{r U-net}
+noms_instr6 <- names(llista_instr_concordance[[6]])
+
+dt_unet_sim <- tibble(
+  !!noms_instr6[1] := 1:100,
+  !!noms_instr6[2] := sample(1:100, 100, replace = T),
+  !!noms_instr6[3] := as.Date(sample(seq.Date(
+    as.Date("2025-12-01"), as.Date(Sys.Date()), by = "day"), 
+    size = 100, replace = TRUE)),
+  !!noms_instr6[4] := sample(1:4, 100, replace = T),
+  !!!setNames(
+    lapply(5:(length(noms_instr6) - 1), \(i) sample(0:1, 100, replace = TRUE)),
+    noms_instr6[5:(length(noms_instr6) - 1)]),
+  !!noms_instr6[length(noms_instr6)] := 2
+)
+
+
+```
+
+
+
+```{r import a redcap}
+
+redcap_write(
+    ds          = dt_inc_criteria_sim,
+    redcap_uri  = con$url,
+    token       = con$token_concordance
+  )
+
+redcap_write(
+    ds          = dt_baseline_sim,
+    redcap_uri  = con$url,
+    token       = con$token_concordance
+  )
+
+redcap_write(
+    ds          = dt_endpoint_platform_sim,
+    redcap_uri  = con$url,
+    token       = con$token_concordance
+  )
+
+redcap_write(
+    ds          = dt_endpoint_real_sim,
+    redcap_uri  = con$url,
+    token       = con$token_concordance
+  )
+
+redcap_write(
+    ds          = dt_device_sim,
+    redcap_uri  = con$url,
+    token       = con$token_concordance
+  )
+
+redcap_write(
+    ds          = dt_unet_sim,
+    redcap_uri  = con$url,
+    token       = con$token_concordance
+  )
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
