@@ -78,11 +78,7 @@ dt_char_prof_sim <- dt_char_prof_sim %>% mutate(
   characteristics_of_professional_complete = 2
 )
 
-redcap_write(
-  ds          = dt_char_prof_sim,
-  redcap_uri  = con$url,
-  token       = con$token_usability
-)$success
+
 
 ```
 
@@ -118,11 +114,7 @@ dt_prof_case_sim <- dt_prof_case_sim %>%
   ) %>%
   select(-idx_ok)
 
-redcap_write(
-  ds          = dt_prof_case_sim,
-  redcap_uri  = con$url,
-  token       = con$token_usability
-)$success
+
 
 ```
 
@@ -180,11 +172,7 @@ dt_t_interaction_sim <- dt_t_interaction_sim %>%
   ) %>%
   select(-idx_ok)
 
-redcap_write(
-  ds          = dt_t_interaction_sim,
-  redcap_uri  = con$url,
-  token       = con$token_usability
-)$success
+
 
 ```
 
@@ -213,11 +201,7 @@ dt_drt_sim <- dt_drt_sim %>%
   ) %>%
   select(-idx_ok)
 
-redcap_write(
-  ds          = dt_drt_sim,
-  redcap_uri  = con$url,
-  token       = con$token_usability
-)$success
+
 
 ```
 
@@ -271,11 +255,7 @@ dt_critical_sim <- dt_critical_sim %>%
   select(-idx_ok)
 
 
-redcap_write(
-  ds          = dt_critical_sim,
-  redcap_uri  = con$url,
-  token       = con$token_usability
-)$success
+
 
 ```
 
@@ -305,11 +285,7 @@ dt_sus_final <- dt_sus_final %>% mutate(
     sus_usability_final_complete = 2
   )
 
-redcap_write(
-  ds          = dt_sus_final,
-  redcap_uri  = con$url,
-  token       = con$token_usability
-)$success
+
 ```
 
 
@@ -339,62 +315,52 @@ dt_likert_sim <- dt_likert_sim %>%
     likert_open_questions_final_complete = 2
   )
 
+
+
+```
+
+```{r importar a redcap}
+
+redcap_write(
+  ds          = dt_char_prof_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)
+
+redcap_write(
+  ds          = dt_prof_case_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)
+
+redcap_write(
+  ds          = dt_t_interaction_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)
+
+redcap_write(
+  ds          = dt_drt_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)
+
+redcap_write(
+  ds          = dt_critical_sim,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)
+
+redcap_write(
+  ds          = dt_sus_final,
+  redcap_uri  = con$url,
+  token       = con$token_usability
+)
+
 redcap_write(
   ds          = dt_likert_sim,
   redcap_uri  = con$url,
   token       = con$token_usability
-)$success
-
-```
-
-
-
-# Concordance
-
-```{r Càrrega Questionari Usability}
-
-load(here::here('dades','con.RData'))
-
-
-res_concordance <- redcap_project_info_read(
-  redcap_uri = con$url,
-  token      = con$token_concordance
 )
-
-
-meta_concordance <- redcap_metadata_read(
-  redcap_uri = con$url,
-  token      = con$token_concordance
-)
-
 ```
-
-
-```{r instruments}
-instruments_concordance <- unique(meta_concordance$data$form_name)
-llista_instr_concordance <- list()
-
-for (i in instruments_concordancey){
-  llista_instr_concordancey[[i]] <- redcap_read(
-    redcap_uri = con$url,
-    token      = con$token_concordance,
-    forms = i
-  )$data
-}
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
