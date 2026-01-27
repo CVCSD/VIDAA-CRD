@@ -1,0 +1,175 @@
+---
+title: "Generador_crd_1a1"
+output: html_document
+date: "2026-01-27"
+---
+
+```{r}
+
+library(REDCapR)
+library(tidyverse)
+
+load(here::here('dades','con.RData'))
+
+
+res <- redcap_project_info_read(
+  redcap_uri = con$url,
+  token      = con$token_concordance
+)
+
+
+meta <- redcap_metadata_read(
+  redcap_uri = con$url,
+  token      = con$token_concordance
+)
+```
+
+```{r}
+
+diccionari <- meta$data
+
+unique(meta$data$form_name)
+
+instr <- redcap_read(
+    redcap_uri = con$url,
+    token      = con$token_concordance
+  )$data
+
+instr_exportable <- instr[0,]
+
+```
+
+```{r}
+n.respostes <- 100 # Numero de respostes a simular, en aquest cas volem fer 100
+
+var_numeriques <- function(min, max, n.respostes = n.respostes){
+  sample(min:max, n.respostes, replace = T)
+}
+
+var_data <- function(data_min=lubridate::ymd(19500101), data_max=lubridate::ymd(20200101), n.respostes = 1){
+    runif(n.respostes,data_min,data_max) %>% trunc() %>% as_date()
+}
+
+var_dropdown <- function(n.respostes = n.respostes, n.probables = 2){ # Fixem 2 per una variable binaria.
+  sample(1:n.probables, n.respostes, replace = T)
+}
+
+variable_id <- function(columna, n.respostes = n.respostes){
+  paste0(columna, "_", sample(0:n.respostes, n.respostes, replace = F))
+}
+
+
+
+
+```
+
+```{r}
+a <- colnames(instr[18])
+
+diccionari_a <- diccionari %>% 
+  filter(field_name == a)
+
+unique(diccionari$field_type)
+
+
+## Cas particular de generar variables SiNo
+
+n <- 10
+
+noms_varsyesno<-diccionari %>% filter(field_type=="yesno") %>% pull(field_name) 
+dt_yesno <- tibble(
+  !!!setNames(
+    replicate(length(noms_varsyesno), rbinom(n, 1, 0.5), simplify = FALSE),
+    noms_vars))
+
+# Variables Dropdown
+
+dropdown <- diccionari %>%
+  filter(field_type == "dropdown") %>%
+  mutate(
+    n_probables = str_count(select_choices_or_calculations, "\\|") + 1
+  )
+
+dt_dropdown <-  map2_dfc(
+  dropdown$field_name,
+  dropdown$n_probables,
+  ~ tibble(!!.x := var_dropdown(n.respostes, .y)))
+
+```
+
+
+```{r generacio_text}
+
+
+# text
+
+text <- diccionari %>%
+  filter(field_type == "text") %>% 
+  filter(!field_name %in% c("record_id", "nhc", "nom_revisor")) %>%
+  mutate(
+    es_data = text_validation_type_or_show_slider_number == "date_dmy",
+    te_min = !is.na(text_validation_min) & text_validation_min != "",
+    te_max = !is.na(text_validation_max) & text_validation_max != "",
+    te_min_i_max = te_min & te_max
+  ) %>% 
+  select(-c(te_min,te_max))
+
+dt_text <- tibble::tibble()
+
+## Dates sense minim ni maxim 
+vars_dates_no_minmax<-
+  text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
+  filter(es_data) %>% filter(!te_min_i_max) %>% pull(field_name)
+dt_dates_no_minmax <- tibble(
+  !!!setNames(
+    replicate(length(vars_dates_no_minmax), var_data(n.respostes = n), simplify = FALSE),
+    vars_dates_no_minmax))
+
+## Dates amb minim i maxim 
+vars_dates_minmax <-
+  text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
+  filter(es_data) %>% filter(te_min_i_max)
+vars_dates_minmax_names <-
+  text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
+  filter(es_data) %>% filter(te_min_i_max) %>% pull(field_name)
+
+dt_dates_no_minmax <- tibble(
+  !!!setNames(
+    replicate(length(vars_dates_minmax_names), var_data(text_validation_min,text_validation_max,n.respostes = n), simplify = FALSE),
+    vars_dates_minmax_names))
+
+
+## Numeriques sense minim ni maxim
+
+vars_num_no_minmax <- text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
+  filter(!es_data) %>% filter(!te_min_i_max)
+vars_num_no_minmax_names <- text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
+  filter(!es_data) %>% filter(!te_min_i_max) %>% pull(field_name)
+  
+dt_num_no_minmax <- tibble(
+  !!!setNames(
+    replicate(length(vars_num_no_minmax_names), rnorm(n,0,1), simplify = F),
+    vars_num_no_minmax_names
+  )
+)
+
+## Numeriques amb minim i maxim
+
+vars_num_minmax <- text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
+  filter(!es_data) %>% filter(te_min_i_max)
+vars_num_minmax_names <- text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
+  filter(!es_data) %>% filter(te_min_i_max) %>% pull(field_name)
+  
+dt_num_minmax <- tibble(
+  !!!setNames(
+    replicate(length(vars_num_minmax_names), var_numeriques(min = text_validation_min, max = text_validation_max, n.respostes = n), simplify = F),
+    vars_num_minmax_names
+  )
+)
+
+
+```
+
+
+
+
