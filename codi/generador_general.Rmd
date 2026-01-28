@@ -64,23 +64,15 @@ variable_id <- function(columna, n.respostes = n.respostes){
 ```
 
 ```{r}
-a <- colnames(instr[18])
-
-diccionari_a <- diccionari %>% 
-  filter(field_name == a)
-
-unique(diccionari$field_type)
-
 
 ## Cas particular de generar variables SiNo
 
-n <- 10
 
-noms_varsyesno<-diccionari %>% filter(field_type=="yesno") %>% pull(field_name) 
+noms_varsyesno <-diccionari %>% filter(field_type=="yesno") %>% pull(field_name) 
 dt_yesno <- tibble(
   !!!setNames(
-    replicate(length(noms_varsyesno), rbinom(n, 1, 0.5), simplify = FALSE),
-    noms_vars))
+    replicate(length(noms_varsyesno), rbinom(n.respostes, 1, 0.5), simplify = FALSE),
+    noms_varsyesno))
 
 # Variables Dropdown
 
@@ -114,7 +106,6 @@ text <- diccionari %>%
   ) %>% 
   select(-c(te_min,te_max))
 
-dt_text <- tibble::tibble()
 
 ## Dates sense minim ni maxim 
 vars_dates_no_minmax<-
@@ -122,7 +113,7 @@ vars_dates_no_minmax<-
   filter(es_data) %>% filter(!te_min_i_max) %>% pull(field_name)
 dt_dates_no_minmax <- tibble(
   !!!setNames(
-    replicate(length(vars_dates_no_minmax), var_data(n.respostes = n), simplify = FALSE),
+    replicate(length(vars_dates_no_minmax), var_data(n.respostes = n.respostes), simplify = FALSE),
     vars_dates_no_minmax))
 
 ## Dates amb minim i maxim 
@@ -135,7 +126,7 @@ vars_dates_minmax_names <-
 
 dt_dates_no_minmax <- tibble(
   !!!setNames(
-    replicate(length(vars_dates_minmax_names), var_data(text_validation_min,text_validation_max,n.respostes = n), simplify = FALSE),
+    replicate(length(vars_dates_minmax_names), var_data(text_validation_min,text_validation_max,n.respostes = n.respostes), simplify = FALSE),
     vars_dates_minmax_names))
 
 
@@ -148,7 +139,7 @@ vars_num_no_minmax_names <- text %>% select(field_name,es_data,te_min_i_max , te
   
 dt_num_no_minmax <- tibble(
   !!!setNames(
-    replicate(length(vars_num_no_minmax_names), rnorm(n,0,1), simplify = F),
+    replicate(length(vars_num_no_minmax_names), rnorm(n.respostes,0,1), simplify = F),
     vars_num_no_minmax_names
   )
 )
@@ -157,18 +148,63 @@ dt_num_no_minmax <- tibble(
 
 vars_num_minmax <- text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
   filter(!es_data) %>% filter(te_min_i_max)
+
 vars_num_minmax_names <- text %>% select(field_name,es_data,te_min_i_max , text_validation_min,text_validation_max) %>% 
   filter(!es_data) %>% filter(te_min_i_max) %>% pull(field_name)
   
-dt_num_minmax <- tibble(
-  !!!setNames(
-    replicate(length(vars_num_minmax_names), var_numeriques(min = text_validation_min, max = text_validation_max, n.respostes = n), simplify = F),
-    vars_num_minmax_names
-  )
-)
+dt_num_minmax <- tibble()
+
+dt_num_minmax <- purrr::pmap_dfc(
+  vars_num_minmax[, c("field_name", "text_validation_min", "text_validation_max")],
+  \(field_name, text_validation_min, text_validation_max) {
+    tibble::tibble(
+      !!field_name := rnorm(n = n.respostes, mean = (text_validation_max+text_validation_min)/2))})
 
 
 ```
+
+
+```{r}
+# Variables Genèriques
+
+record_id <- tibble::tibble(record_id = 1:n.respostes)
+nhc <-  tibble::tibble(nhc = paste0('nhc_',1:n.respostes))
+```
+
+
+```{r}
+# Variables noms
+
+
+noms_base <- c("Pau", "Anna", "Joan", "Laura", "Marc",
+               "Clara", "Pol", "Mireia", "David", "Nuria")
+
+nom_revisor <- tibble::tibble(nom_revisor = paste0(noms_base, " ", sample(LETTERS, n.respostes, replace = TRUE), "."))
+
+```
+
+
+
+```{r}
+dts <- list(
+  dt_dates_no_minmax = dt_dates_no_minmax,
+  dt_yesno = dt_yesno,
+  dt_dropdown = dt_dropdown,
+  dt_num_no_minmax = dt_num_no_minmax,
+  dt_num_minmax = dt_num_minmax,
+  record_id = record_id,
+  nhc = nhc,
+  nom_revisor = nom_revisor
+)
+
+dt_unit <- do.call(
+  cbind,
+  unname(dts[vapply(dts, nrow, integer(1)) == n.respostes])
+)
+
+setdiff(names(instr_exportable),names(dt_unit))
+```
+
 
 
 
