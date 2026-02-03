@@ -1,0 +1,28 @@
+---
+title: "Genador_crd2"
+output: html_document
+date: "2026-02-03"
+---
+```{r}
+
+library(REDCapR)
+library(tidyverse)
+library(stringr)
+
+load(here::here('dades','Redcap.RData'))
+load(here::here('dades','con.RData'))
+
+
+```
+
+
+```{r}
+
+diccionari<-diccionari_usability
+instr<-instr_usability
+meta<-meta_usability
+
+rm(diccionari_concordance,diccionari_usability,meta_concordance,meta_usability,instr_usability,instr_concordance)
+
+
+```

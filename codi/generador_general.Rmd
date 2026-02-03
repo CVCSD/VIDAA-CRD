@@ -8,9 +8,10 @@ date: "2026-01-27"
 
 library(REDCapR)
 library(tidyverse)
+library(stringr)
 
 load(here::here('dades','Redcap.RData'))
-
+load(here::here('dades','con.RData'))
 
 
 ```
@@ -32,10 +33,6 @@ rm(diccionari_concordance,diccionari_usability,meta_concordance,meta_usability,i
 ```{r}
 n.respostes <- 100 # Numero de respostes a simular, en aquest cas volem fer 100
 
-var_numeriques <- function(min, max, n.respostes = n.respostes){
-  sample(min:max, n.respostes, replace = T)
-}
-
 
 var_data <- function(data_min=lubridate::ymd(19500101), data_max=lubridate::ymd(20200101), n.respostes = 1){
     runif(n.respostes,data_min,data_max) %>% trunc() %>% as_date()
@@ -44,24 +41,25 @@ var_data <- function(data_min=lubridate::ymd(19500101), data_max=lubridate::ymd(
 var_dropdown <- function(n.respostes = n.respostes, n.probables = 2){ # Fixem 2 per una variable binaria.
   sample(1:n.probables, n.respostes, replace = T)
 }
-
-variable_id <- function(columna, n.respostes = n.respostes){
-  paste0(columna, "_", sample(0:n.respostes, n.respostes, replace = F))
-}
 ```
 
-```{r generar_SINO_Dropdowns}
-## Cas particular de generar variables SiNo
+
+```{r record_id}
+record_id <- tibble::tibble(record_id = 1:n.respostes) # Aquesta esta sempre
+```
 
 
+
+```{r generar_SINO}
 noms_varsyesno <-diccionari %>% filter(field_type=="yesno") %>% pull(field_name) 
 dt_yesno <- tibble(
   !!!setNames(
     replicate(length(noms_varsyesno), rbinom(n.respostes, 1, 0.5), simplify = FALSE),
     noms_varsyesno))
+```
 
-# Variables Dropdown
 
+```{r generar_Dropdowns}
 dropdown <- diccionari %>%
   filter(field_type == "dropdown") %>%
   mutate(
@@ -78,23 +76,22 @@ dt_dropdown <-  map2_dfc(
 
 
 ```{r generacio_text}
-# text
-
 text <- diccionari %>%
   filter(field_type == "text") %>% 
   filter(!field_name %in% c("record_id", "nhc", "nom_revisor")) %>%
   mutate(
     te_min = !is.na(text_validation_min) & text_validation_min != "",
-    te_max = !is.na(text_validation_max) & text_validation_max != "",
-    te_min_i_max = te_min & te_max
-  ) %>% 
-  select(-c(te_min,te_max))
+    te_max = !is.na(text_validation_max) & text_validation_max != ""
+  )
+```
 
+
+```{r Variables temporals}
 
 ## Dates sense minim ni maxim 
 vars_dates_no_minmax <- text %>% 
   filter(text_validation_type_or_show_slider_number == "date_dmy") %>% 
-  filter(!te_min_i_max) %>% 
+  filter(!te_min & !te_max) %>% 
   pull(field_name)
 
 dt_dates_no_minmax <- tibble(
@@ -102,11 +99,53 @@ dt_dates_no_minmax <- tibble(
     replicate(length(vars_dates_no_minmax), var_data(n.respostes = n.respostes), simplify = FALSE),
     vars_dates_no_minmax))
 
+# Dates amb minim pero sense maxim
+
+vars_dates_min <-text %>% 
+  filter(text_validation_type_or_show_slider_number == "date_dmy") %>% 
+  select(field_name,te_min, te_max , text_validation_min,text_validation_max) %>%
+  filter(te_min & !te_max)
+
+
+
+vars_dates_min_names <- vars_dates_min %>% 
+  pull(field_name)
+
+dt_dates_min <- tibble(
+  !!!setNames(
+    replicate(length(vars_dates_min_names), var_data(data_min = text_validation_min,
+                                                        n.respostes = n.respostes), 
+              simplify = FALSE),
+    vars_dates_min_names))
+
+
+
+# Dates amb maxim pero sense minim
+
+vars_dates_max <-text %>% 
+  filter(text_validation_type_or_show_slider_number == "date_dmy") %>% 
+  select(field_name,te_min, te_max , text_validation_min,text_validation_max) %>%
+  filter(!te_min & te_max)
+
+
+
+vars_dates_max_names <- vars_dates_max %>% 
+  pull(field_name)
+
+dt_dates_max <- tibble(
+  !!!setNames(
+    replicate(length(vars_dates_max_names), var_data(data_max = text_validation_max,
+                                                     n.respostes = n.respostes), 
+              simplify = FALSE),
+    vars_dates_max_names))
+
+
+
 ## Dates amb minim i maxim 
 vars_dates_minmax <-text %>% 
   filter(text_validation_type_or_show_slider_number == "date_dmy") %>% 
-  select(field_name,te_min_i_max , text_validation_min,text_validation_max) %>%
-  filter(te_min_i_max)
+  select(field_name,te_min, te_max , text_validation_min,text_validation_max) %>%
+  filter(te_min & te_max)
 
 vars_dates_minmax_names <- vars_dates_minmax %>% 
   pull(field_name)
@@ -115,66 +154,155 @@ dt_dates_minmax <- tibble(
   !!!setNames(
     replicate(length(vars_dates_minmax_names), var_data(text_validation_min,text_validation_max,n.respostes = n.respostes), simplify = FALSE),
     vars_dates_minmax_names))
+```
 
 
+```{r Variable Numèriques}
 ## Numeriques sense minim ni maxim
 
 vars_num_no_minmax <- text %>% 
-  filter(text_validation_type_or_show_slider_number == "number") %>% 
-  select(field_name,te_min_i_max , text_validation_min,text_validation_max) %>% 
-  filter(!te_min_i_max)
+  filter(stringr::str_detect(text_validation_type_or_show_slider_number, '^number_?.*')) %>% 
+  mutate(decimals = as.integer(str_extract(text_validation_type_or_show_slider_number, "(?<=_)\\d+"))) %>% 
+  select(field_name,te_min, te_max, text_validation_min,text_validation_max,decimals) %>% 
+  filter(!te_min & !te_max)
 
 vars_num_no_minmax_names <- vars_num_no_minmax %>% 
   pull(field_name)
   
-dt_num_no_minmax <- tibble(
-  !!!setNames(
-    replicate(length(vars_num_no_minmax_names), round(rnorm(n.respostes,0,1),2), simplify = F),
-    vars_num_no_minmax_names
-  ))
+dt_num_no_minmax <- purrr::pmap_dfc(
+  vars_num_no_minmax[, c("field_name", "decimals")],
+  \(field_name, decimals) {
+    tibble::tibble(
+      !!field_name := formatC(rnorm(n = n.respostes), 
+                              format = "f", 
+                              digits = if_else(is.na(decimals),2,decimals))
+    )})
+
+## Numeriques amb minim pero no maxim
+
+vars_num_min <- text %>% 
+  filter(stringr::str_detect(text_validation_type_or_show_slider_number, '^number_?.*')) %>% 
+  mutate(decimals = as.integer(str_extract(text_validation_type_or_show_slider_number, "(?<=_)\\d+"))) %>% 
+  select(field_name,te_min, te_max, text_validation_min, decimals) %>% 
+  filter(te_min & !te_max)
+
+vars_num_min_names <- vars_num_min %>% 
+  pull(field_name)
+
+dt_num_min <- purrr::pmap_dfc(
+  vars_num_min[, c("field_name", "decimals", "text_validation_min")],
+  \(field_name, decimals, text_validation_min) {
+    tibble::tibble(
+      !!field_name := formatC(truncnorm::rtruncnorm(n = n.respostes,a = text_validation_min, b = Inf)
+                              , format = "f", 
+                              digits = if_else(is.na(decimals),2,decimals))
+    )})
+
+## Numeriques amb minim pero no maxim
+
+vars_num_max <- text %>% 
+  filter(stringr::str_detect(text_validation_type_or_show_slider_number, '^number_?.*')) %>% 
+  mutate(decimals = as.integer(str_extract(text_validation_type_or_show_slider_number, "(?<=_)\\d+"))) %>% 
+  select(field_name,te_min, te_max, text_validation_max,decimals) %>% 
+  filter(!te_min & te_max)
+
+vars_num_max_names <- vars_num_max %>% 
+  pull(field_name)
+
+dt_num_max <- purrr::pmap_dfc(
+  vars_num_max[, c("field_name", "decimals", "text_validation_max")],
+  \(field_name, decimals, text_validation_max) {
+    tibble::tibble(
+      !!field_name := formatC(truncnorm::rtruncnorm(n = n.respostes,a = -Inf, b = text_validation_max )
+                              , format = "f", 
+                              digits = if_else(is.na(decimals),2,decimals))
+    )})
+
 
 ## Numeriques amb minim i maxim
 
 vars_num_minmax <- text %>% 
-  filter(text_validation_type_or_show_slider_number == "number") %>% 
-  select(field_name,te_min_i_max , text_validation_min,text_validation_max) %>%
-  filter(te_min_i_max) 
+  filter(stringr::str_detect(text_validation_type_or_show_slider_number, '^number_?.*')) %>% 
+  mutate(decimals = as.integer(str_extract(text_validation_type_or_show_slider_number, "(?<=_)\\d+"))) %>% 
+  select(field_name,te_min, te_max , text_validation_min,text_validation_max, decimals) %>%
+  filter(te_min & te_max) 
 
-# Noms de les variables
+
 vars_num_minmax_names <- vars_num_minmax %>% pull(field_name)
   
 dt_num_minmax <- tibble()
 
 dt_num_minmax <- purrr::pmap_dfc(
-  vars_num_minmax[, c("field_name", "text_validation_min", "text_validation_max")],
-  \(field_name, text_validation_min, text_validation_max) {
+  vars_num_minmax[, c("field_name", "text_validation_min", "text_validation_max", "decimals")],
+  \(field_name, text_validation_min, text_validation_max, decimals) {
     tibble::tibble(
-      !!field_name := rnorm(n = n.respostes, mean = (as.numeric(text_validation_max)+as.numeric(text_validation_min))/2) %>% round(2)
-      )})
+      !!field_name := formatC(rnorm(n = n.respostes, mean = (as.numeric(text_validation_max)+as.numeric(text_validation_min))/2)
+                              , format = "f", 
+                              digits = if_else(is.na(decimals),2,decimals))
+    )})
+```
 
+
+```{r Variable Integer}
 # Integer sense min ni max
 vars_int_no_minmax <- text %>% 
   filter(text_validation_type_or_show_slider_number == "integer") %>% 
-  select(field_name,te_min_i_max , text_validation_min,text_validation_max) %>% 
-  filter(!te_min_i_max)
+  select(field_name,te_min, te_max) %>% 
+  filter(!te_min & !te_max)
 
 vars_int_no_minmax_names <- vars_int_no_minmax %>% 
   pull(field_name)
   
+
 dt_int_no_minmax <- tibble(
   !!!setNames(
     replicate(length(vars_int_no_minmax_names), sample(18:100, 100, replace = T), simplify = F),
     vars_int_no_minmax_names
   ))
 
+
+# Integer amb minim sense maxim
+
+vars_int_min <- text %>% 
+  filter(text_validation_type_or_show_slider_number == "integer") %>% 
+  select(field_name,te_min, te_max , text_validation_min) %>%
+  filter(te_min & !te_max) 
+
+vars_int_min_names <- vars_int_min %>% pull(field_name)
+
+dt_int_min <- purrr::pmap_dfc(
+  vars_int_min[, c("field_name", "text_validation_min")],
+  \(field_name, text_validation_min) {
+    tibble::tibble(
+      !!field_name := truncnorm::rtruncnorm(n = n.respostes,a = text_validation_min, b = Inf) %>% 
+        round(0))
+    })
+
+# Integer amb maxim sense minim
+
+vars_int_max <- text %>% 
+  filter(text_validation_type_or_show_slider_number == "integer") %>% 
+  select(field_name,te_min, te_max, text_validation_max) %>%
+  filter(!te_min & te_max) 
+
+
+vars_int_max_names <- vars_int_max %>% pull(field_name)
+
+dt_int_max <- purrr::pmap_dfc(
+  vars_int_max[, c("field_name", "text_validation_max")],
+  \(field_name, text_validation_max) {
+    tibble::tibble(
+      !!field_name :=truncnorm::rtruncnorm( n = n.respostes,a = -Inf, b = text_validation_max %>% 
+                                              round(0))
+    )})
+
 # Integer amb min i max
 
 vars_int_minmax <- text %>% 
   filter(text_validation_type_or_show_slider_number == "integer") %>% 
-  select(field_name,te_min_i_max , text_validation_min,text_validation_max) %>%
-  filter(te_min_i_max) 
+   select(field_name,te_min, te_max, text_validation_min ,text_validation_max) %>% 
+  filter(te_min & te_max)
 
-# Noms de les variables
 vars_int_minmax_names <- vars_int_minmax %>% pull(field_name)
   
 dt_int_minmax <- tibble()
@@ -183,10 +311,11 @@ dt_int_minmax <- purrr::pmap_dfc(
   vars_int_minmax[, c("field_name", "text_validation_min", "text_validation_max")],
   \(field_name, text_validation_min, text_validation_max) {
     tibble::tibble(
-      !!field_name := rnorm(n = n.respostes, mean = (as.integer(text_validation_max)+as.integer(text_validation_min))/2) %>% round(0)
+      !!field_name := rnorm(n = n.respostes, mean = (as.integer(text_validation_max)+as.integer(text_validation_min))/2 %>% 
+                              round(0))
       )})
 
-# Var NA (numeriques)
+# Var NA (numeriques no classificades)
 
 vars_na <- text %>% 
   filter(is.na(text_validation_type_or_show_slider_number)) %>%
@@ -202,41 +331,26 @@ dt_vars_na <- tibble(
 ```
 
 
-```{r}
-# Variables Genèriques
-
-record_id <- tibble::tibble(record_id = 1:n.respostes)
-nhc <-  tibble::tibble(nhc = paste0('nhc_',1:n.respostes))
-```
 
 
-```{r}
-# Variables noms
-
-
-noms_base <- c("Pau", "Anna", "Joan", "Laura", "Marc",
-               "Clara", "Pol", "Mireia", "David", "Nuria")
-
-nom_revisor <- tibble::tibble(nom_revisor = paste0(noms_base, " ", sample(LETTERS, n.respostes, replace = TRUE), "."))
-
-```
-
-
-
-```{r}
+```{r unio_data}
 
 dts <- list(
   dt_dates_minmax = dt_dates_minmax,
+  dt_dates_min =dt_dates_min,
+  dt_dates_max = dt_dates_max,
   dt_dates_no_minmax = dt_dates_no_minmax,
   dt_yesno = dt_yesno,
   dt_dropdown = dt_dropdown,
   dt_num_no_minmax = dt_num_no_minmax,
+  dt_nim_min = dt_num_min,
+  dt_num_max = dt_num_max,
   dt_num_minmax = dt_num_minmax,
   dt_int_minmax = dt_int_minmax,
+  dt_int_min = dt_int_min,
+  dt_int_max = dt_int_max,
   dt_int_no_minmax = dt_int_no_minmax,
   record_id = record_id,
-  nhc = nhc,
-  nom_revisor = nom_revisor,
   dt_vars_na = dt_vars_na
 )
 
@@ -245,20 +359,12 @@ dt_unit <- do.call(
   unname(dts[vapply(dts, nrow, integer(1)) == n.respostes])
 )
 
-
-dt_complete <- tibble(
-  !!!setNames(
-    replicate(length(setdiff(names(instr_concordance),names(dt_unit))), rep(2, 100), simplify = F),
-    setdiff(names(instr_concordance),names(instr_concordance))
-  ))
 ```
 
 
 ```{r}
-dt_fusio <- cbind(dt_unit,dt_complete)
-
 redcap_write(
-    ds          = dt_fusio,
+    ds          = dt_unit,
     redcap_uri  = con$url,
     token       = con$token_concordance
   )

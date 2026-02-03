@@ -5,6 +5,7 @@ library(tidyverse)
 load(here::here('dades','con.RData'))
 
 
+
 # Usability
 
 
