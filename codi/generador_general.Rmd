@@ -10,7 +10,23 @@ library(REDCapR)
 library(tidyverse)
 
 load(here::here('dades','Redcap.RData'))
+
+
+
 ```
+
+
+```{r}
+
+diccionari<-diccionari_concordance
+instr<-instr_concordance
+meta<-meta_concordance
+
+rm(diccionari_concordance,diccionari_usability,meta_concordance,meta_usability,instr_usability,instr_concordance)
+
+
+```
+
 
 
 ```{r}
@@ -19,6 +35,7 @@ n.respostes <- 100 # Numero de respostes a simular, en aquest cas volem fer 100
 var_numeriques <- function(min, max, n.respostes = n.respostes){
   sample(min:max, n.respostes, replace = T)
 }
+
 
 var_data <- function(data_min=lubridate::ymd(19500101), data_max=lubridate::ymd(20200101), n.respostes = 1){
     runif(n.respostes,data_min,data_max) %>% trunc() %>% as_date()
@@ -33,11 +50,11 @@ variable_id <- function(columna, n.respostes = n.respostes){
 }
 ```
 
-```{r}
+```{r generar_SINO_Dropdowns}
 ## Cas particular de generar variables SiNo
 
 
-noms_varsyesno <-diccionari_concordance %>% filter(field_type=="yesno") %>% pull(field_name) 
+noms_varsyesno <-diccionari %>% filter(field_type=="yesno") %>% pull(field_name) 
 dt_yesno <- tibble(
   !!!setNames(
     replicate(length(noms_varsyesno), rbinom(n.respostes, 1, 0.5), simplify = FALSE),
@@ -45,7 +62,7 @@ dt_yesno <- tibble(
 
 # Variables Dropdown
 
-dropdown <- diccionari_concordance %>%
+dropdown <- diccionari %>%
   filter(field_type == "dropdown") %>%
   mutate(
     n_probables = str_count(select_choices_or_calculations, "\\|") + 1
@@ -55,13 +72,15 @@ dt_dropdown <-  map2_dfc(
   dropdown$field_name,
   dropdown$n_probables,
   ~ tibble(!!.x := var_dropdown(n.respostes, .y)))
+
+
 ```
 
 
 ```{r generacio_text}
 # text
 
-text <- diccionari_concordance %>%
+text <- diccionari %>%
   filter(field_type == "text") %>% 
   filter(!field_name %in% c("record_id", "nhc", "nom_revisor")) %>%
   mutate(
@@ -205,6 +224,7 @@ nom_revisor <- tibble::tibble(nom_revisor = paste0(noms_base, " ", sample(LETTER
 
 
 ```{r}
+
 dts <- list(
   dt_dates_minmax = dt_dates_minmax,
   dt_dates_no_minmax = dt_dates_no_minmax,

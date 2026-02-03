@@ -4,13 +4,11 @@ library(tidyverse)
 
 load(here::here('dades','con.RData'))
 
+
 # Usability
 
-res_usability <- redcap_project_info_read(
-  redcap_uri = con$url,
-  token      = con$token_usability
-)
 
+# lectura metadades
 
 meta_usability <- redcap_metadata_read(
   redcap_uri = con$url,
@@ -21,6 +19,7 @@ meta_usability <- redcap_metadata_read(
 diccionari_usability <- meta_usability$data
 
 
+
 instr_usability <- redcap_read(
   redcap_uri = con$url,
   token      = con$token_usability
@@ -29,12 +28,6 @@ instr_usability <- redcap_read(
 
 
 # Concordance
-
-
-res_concordance <- redcap_project_info_read(
-  redcap_uri = con$url,
-  token      = con$token_concordance
-)
 
 
 meta_concordance <- redcap_metadata_read(
@@ -51,6 +44,8 @@ instr_concordance <- redcap_read(
   token      = con$token_concordance
 )$data
 
+
+rm(con)
 
 save.image(here::here('dades',"Redcap.RData"))
 

@@ -6,6 +6,11 @@
 .RData
 .RDataTmp
 
+
+dades/.RData
+/dades/
+
+
 # User-specific files
 .Ruserdata
 
